@@ -25,7 +25,7 @@ In this example duration profile, if the booking has a duration from 0 to 60 min
 
 ### Meeting Title Keywords
 
-We may want to leave high priority meeting booking unmonitored so we can use the Meeting Title keyboard profile to disable monitoring in this case. It is also possible to monitor these booking with different timer delays if required
+We may want to leave high priority bookings unmonitored so we can use the Meeting Title keyboard profile to disable monitoring in these cases. It is also possible to monitor these booking with different timer delays if required
 
 ```js
 {
@@ -38,7 +38,7 @@ We may want to leave high priority meeting booking unmonitored so we can use the
  
 ### Organizer
 
-We may want to disabling monitoring for booking made by specific organisers, this example profile will check the Organiser name associated with the booking.
+We may want to disable monitoring for bookings made by specific organisers. This example profile will check the Organiser name associated with the booking.
 
 ```js
 {
@@ -51,6 +51,7 @@ We may want to disabling monitoring for booking made by specific organisers, thi
 
 ### Flow Diagram
 
+![Unbook Workspace Macro](https://github.com/wxsd-sales/unbook-workspace-macro/assets/21026209/b99a69ac-9e65-481f-af86-48dee2598eee)
 
 
 
