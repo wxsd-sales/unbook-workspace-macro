@@ -10,9 +10,9 @@
  * 
  * This example macro release empty workspace booking based
  * off configurable policies. Additional for auditing, this
- * macro can log the actions take so admin can review which 
- * booking were released or not and get a better insight into
- * how their workspaces are being used.
+ * macro can log the actions it take to a remote logginge server
+ * so an admin can review which booking were released or not and 
+ * get a better insight into how their workspaces are being used.
  * 
  * Full Readme, source code and license details for this macro are available 
  * on Github: https://github.com/wxsd-sales/unbook-workspace-macro
@@ -26,54 +26,55 @@ import xapi from 'xapi';
 **********************************************************/
 
 const config = {
-  profiles: [
+  profiles: [ // An array of profiles for the macro to match and apply difference behaviours
     {
-      type: 'duration',         // Profile type: duration |
+      type: 'duration',         // Profile type: duration | keywords | organizer
       name: 'Short Meetings',   // Name of profile for logging
-      duration: [0, 60],        // Duration in minutes
-      monitor: true,
-      startMonitoringDelay: 0,
-      stopMonitoringAfter: 10,
-      requiredUnoccpiedDuration: 5,
-      alertBeforeUnbookingDuration: 1
-
+      duration: [0, 60],        // Duration of booking in minutes: From zero minutes to 60 minute meetings
+      monitor: true,            // Enable monitoring for this matched profile
+      startMonitoringDelay: 0,  // Number of minutes after the booking starts in which to begin monitoring
+      stopMonitoringAfter: 10,  // Number of minutes after the booking starts in which to stop monitoring
+      requiredUnoccupiedDuration: 5,    // Number of minutes the workspace is unoccupied before unbooking
+      alertBeforeUnbookingDuration: 1   // Number of minutes before unbooking in which to alert user
     },
     {
       type: 'duration',
       name: 'Between 1 and 2 hour Meetings',
-      duration: [61, 180],
+      duration: [61, 180],      // Duration of booking in minutes: From 61 minutes to 180 minute meetings
       policy: 'long meetings',
       monitor: true,
       startMonitoringDelay: 0,
-      stopMonitoringAfter: 10,
-      requiredUnoccpiedDuration: 5,
+      stopMonitoringAfter: 20,
+      requiredUnoccupiedDuration: 5,
     },
     {
       type: 'duration',
       name: 'All day meetings - Don\'t monitor during lunch hours',
-      duration: [180, 480],
+      duration: [180, 480],          // This profile is a work in progress 
       monitor: true,
       startMonitoringDelay: 0,
       stopMonitoringAfter: 10,
-      requiredUnoccpiedDuration: 5
+      requiredUnoccupiedDuration: 5
     },
     {
-      type: 'keywords',
-      name: 'Meeting Title Keyword',
-      keywords: ['Training', 'Test'],
-      monitor: true
+      type: 'keywords',               // Profile type: Keywords
+      name: 'Meeting Title Keyword',  // Name of profile for logging
+      keywords: ['Training', 'Test'], // Array of keywords in which to look for in the booking title
+      monitor: false                  // Disable monitoring for these matched bookings
     },
     {
-      type: 'organizers',
-      name: 'Organizers Name',
-      organizers: ['John Smyth'],
-      monitor: true
+      type: 'organizers',             // Profile type: Keywords
+      name: 'Organizers Name',        // Name of profile for logging
+      organizers: ['William Mills'],  // Array of organizer names to match with bookings
+      monitor: false                  // Disable monitoring for these matched booking
     },
     {
       type: 'default',
       name: 'Default Booking Handling Profile',
-      organizers: ['John Smyth'],
-      monitor: true
+      monitor: true,
+      startMonitoringDelay: 0,
+      stopMonitoringAfter: 10,
+      requiredUnoccupiedDuration: 5
     }],
   presenceDetection: {
     activeCalls: true,
@@ -85,8 +86,8 @@ const config = {
   },
   externalLogging: {
     enabled: false,
-    url: 'https://<your logging server>',
-    token: '<logging server access token>'
+    url: 'https://<Your Logging Server>',
+    token: '<Logging Server Access Token>'
   },
   debugging: true
 }
@@ -112,7 +113,7 @@ async function processBookingStart(bookingEvt) {
   if (!profile) return
 
   new workspaceMonitor(booking, profile)
-  
+
 }
 
 function mapToProfile(booking) {
@@ -156,6 +157,8 @@ function compareProfile(profile, duration, title, organizer) {
       }
       console.debug(`Organiser [${organizer}] wasn't matched`)
       return false
+    case 'default':
+      return true
   }
 
   console.debug(`Profile [${profile.name}] was not a match`)
@@ -196,10 +199,10 @@ class workspaceMonitor {
 
   _startCountdown() {
 
-    console.log(`Starting Unbooking Countdown for Booking Id [${this._booking.Id}] - [${this._profile.requiredUnoccpiedDuration}] minutes`)
+    console.log(`Starting Unbooking Countdown for Booking Id [${this._booking.Id}] - [${this._profile.requiredUnoccupiedDuration}] minutes`)
     this._clearUnbookTimers();
-    this._unbookTimer = setTimeout(this._unbook.bind(this), this._profile.requiredUnoccpiedDuration * 60 * 1000);
-    this._unbookAlertTimer = setTimeout(this._unbookAlert.bind(this), (this._profile.requiredUnoccpiedDuration - this._profile.alertBeforeUnbookingDuration)* 60 * 1000);
+    this._unbookTimer = setTimeout(this._unbook.bind(this), this._profile.requiredUnoccupiedDuration * 60 * 1000);
+    this._unbookAlertTimer = setTimeout(this._unbookAlert.bind(this), (this._profile.requiredUnoccupiedDuration - this._profile.alertBeforeUnbookingDuration) * 60 * 1000);
   }
 
   _stopCountdown() {
@@ -231,11 +234,11 @@ class workspaceMonitor {
     xapi.Command.UserInterface.Message.Prompt.Display({
       Duration: 30,
       FeedbackId: 'unbookingprompt',
-       Title: 'No Presence Detected' ,
-       Text: `Booking [${this._booking.Title}] will be Unbooked in [${this._profile.alertBeforeUnbookingDuration}] minutes`,
-      "Option.1": 'Don\'t Unbook' 
-      });
-    
+      Title: 'No Presence Detected',
+      Text: `Booking [${this._booking.Title}] will be Unbooked in [${this._profile.alertBeforeUnbookingDuration}] minutes`,
+      "Option.1": 'Don\'t Unbook'
+    });
+
   }
 
   async _checkPresence() {
@@ -270,11 +273,11 @@ class workspaceMonitor {
     console.log(detections)
 
     const presenceDetected = detections.filter((detection) => detection.result).length > 0;
-    
-    if(presenceDetected){
+
+    if (presenceDetected) {
       console.log('Presence Detected')
       this._stopCountdown();
-    } else { 
+    } else {
       console.log('No Presence Detected')
       this._startCountdown();
     }
@@ -293,7 +296,7 @@ class workspaceMonitor {
       console.debug(`Monitoring Presentations for Booking Id [${this._booking.Id}]`)
       this._monitors.push(xapi.Event.PresentationStarted.on(value => {
         console.log('Presentation started', value);
-        }));
+      }));
     }
 
     if (monitor.peopleCount) {
@@ -338,8 +341,8 @@ class workspaceMonitor {
     this._monitors = [];
   }
 
-  _clearUnbookTimers(){
-     if (this._unbookTimer != null) {
+  _clearUnbookTimers() {
+    if (this._unbookTimer != null) {
       clearTimeout(this._unbookTimer)
     }
 
@@ -370,5 +373,4 @@ class workspaceMonitor {
       Url: server.url,
     }, JSON.stringify(payload))
   }
-
 }
