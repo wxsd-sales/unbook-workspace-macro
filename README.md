@@ -1,6 +1,6 @@
 # Unbook Workspace Macro
 
-This is an example enhanced unbooking macro for empty Webex workspaces with added support of handling bookings of different durations, meeting title and organizer names along with a simple telemetry logging feature to track the macros behaviour.
+This is an example enhanced unbooking macro for empty Webex workspaces with added support of handling bookings of different durations, meeting title and organizer names along with a external logging feature to track the macros behaviour.
 
 ## Overview
 
@@ -46,6 +46,32 @@ We may want to disable monitoring for bookings made by specific organisers. This
   name: 'Organizers Name',        // Name of profile for logging
   organizers: ['William Mills'],  // Array of organizer names to match with bookings
   monitor: false                  // Disable monitoring for these matched booking
+}
+```
+
+
+### External Logging
+
+The macro has an external logging feature so admins can monitor and audit how the macro and workspaces are being used and managed. This is disabled by default but can be enabled in the macros config. The data is sent to the logging server as a HTTP POST with a JSON Payload, an example is shown below.
+
+
+External Logging Configuration:
+
+```js
+externalLogging: {
+    enabled: true,                          // Enable or Disable External Logging of macro events: true | false
+    url: 'https://<Your Logging Sever>',    // URL to your external logging server
+    token: '<Logging Server Access Token>'  // Bearer Access Token for your external logging server
+  }
+```
+
+External Logging Data Payload:
+
+```js
+{
+  bookingTile: "<Booking Title>",
+  profile:  "<Match Booking Profile>",
+  action: "<Description of action and outcome taken for Booking>"
 }
 ```
 
