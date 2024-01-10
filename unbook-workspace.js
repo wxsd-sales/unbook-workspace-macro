@@ -15,7 +15,7 @@
  * get a better insight into how their workspaces are being used.
  * 
  * Full Readme, source code and license details for this macro are available 
- * on Github: https://github.com/wxsd-sales/unbook-workspace-macro
+ * on GitHub: https://github.com/wxsd-sales/unbook-workspace-macro
  * 
  ********************************************************/
 
@@ -50,7 +50,7 @@ const config = {
     {
       type: 'duration',
       name: 'All day meetings - Don\'t monitor during lunch hours',
-      duration: [180, 480],          // This profile is a work in progress 
+      duration: [180, 480],         // This profile is a work in progress 
       monitor: true,
       startMonitoringDelay: 0,
       stopMonitoringAfter: 10,
@@ -77,17 +77,17 @@ const config = {
       requiredUnoccupiedDuration: 5
     }],
   presenceDetection: {
-    activeCalls: true,
-    presentation: true,
-    peopleCount: true,
-    peoplePresence: true,
-    presenceAndPeopleCount: false,
-    guiInteractions: true
+    activeCalls: true,                // Consider active calls as presence detected
+    presentation: true,               // Consider presentations as presence detected
+    peopleCount: true,                // Consider peopele count as presence detected
+    peoplePresence: true,             // Consider peopele presence as presence detected
+    presenceAndPeopleCount: false,    // Consider both presence and peoplecount as presence detected
+    guiInteractions: true             // Consider GUI inputs as presence detected
   },
   externalLogging: {
-    enabled: false,
-    url: 'https://<Your Logging Server>',
-    token: '<Logging Server Access Token>'
+    enabled: false,                         // Enable or Disable External Logging of macro events: true | false
+    url: 'https://<Your Logging Sever>',    // URL to your external logging server
+    token: '<Logging Server Access Token>'  // Bearer Access Token for your external logging server
   },
   debugging: true
 }
@@ -99,7 +99,6 @@ const config = {
 
 xapi.Event.Bookings.Start.on(event => processBookingStart(event));
 
-processBookingStart({ Id: 'webex-1' })
 async function processBookingStart(bookingEvt) {
   const bookingId = bookingEvt.Id;
   console.log('Booking Start Event:', bookingId);
@@ -215,7 +214,6 @@ class workspaceMonitor {
     console.log(`Unbooking Booking Id [${this._booking.Id}]] - Meeting Id [${this._booking.MeetingId}]`);
     this._reportMacroAction(`Unbooking Booking Id [${this._booking.Id}]] - Meeting Id [${this._booking.MeetingId}]`)
 
-    return;
     xapi.Command.Bookings.Respond({ MeetingId: this._booking.MeetingId, Type: 'Decline' })
       .then(value => {
         console.log(value)
@@ -254,10 +252,9 @@ class workspaceMonitor {
     }
 
     if (monitor.presentation) {
+      // TODO
       // Query Presentations
-
       // dections.push({presentations: (numOfCalls > 0) });
-
     }
 
     if (monitor.peopleCount) {
@@ -325,7 +322,7 @@ class workspaceMonitor {
 
   }
 
-  // This function unsubscribe from all status changes and events
+  // This function unsubscribes from all status changes and events
   _stopMonitoring() {
     console.log(`Stopping Workspace Monitor for Booking Id [${this._booking.Id}]`)
     this._clearMonitors();
@@ -373,4 +370,5 @@ class workspaceMonitor {
       Url: server.url,
     }, JSON.stringify(payload))
   }
+
 }
