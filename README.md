@@ -77,6 +77,41 @@ External Logging Data Payload:
 
 ### Flow Diagram
 
+
+```mermaid
+---
+title: Monitoring One Hour Meeting With Two Monitors
+displayMode: compact
+config:
+  theme: base
+  themeVariables:
+    primaryColor: "#00fff0"
+    primaryTextColor: "#ff0fab"
+---
+gantt
+    dateFormat HH:mm
+    axisFormat %H:%M
+    section Bookings
+    %% Initial milestone : milestone, m1, 17:49, 2m
+    1 Hour Meeting : 09:00, 1h
+    section Room<br>Presence
+    Not Detected : 09:00, 09:07
+    People Entered - Detected : 09:07, 09:40
+    People Left Early - Not Detected : 09:40, 10:00
+    section Macro<br>Monitoring
+    M1 - Unbooks If 15min Unoccupied : 09:00, 09:15
+    M2 - Unbooks If 10min Unoccupied  : 09:30, 10:00
+    section Macro<br>Events
+    %% Triggers If No One Detected For 15min : 09:00, 15m
+    Starts Monitor :milestone, 09:00,
+    People Detected :milestone, 09:07,
+    Stops Monitor - No Action Taken :milestone, 09:15,
+    Starts Monitor :milestone, 09:30,
+    No Dection :milestone, 09:40,
+    10 Min Unoccupied - Unbooking :milestone, 09:50,
+
+```
+
 ![Unbook Workspace Macro](https://github.com/wxsd-sales/unbook-workspace-macro/assets/21026209/b99a69ac-9e65-481f-af86-48dee2598eee)
 
 
