@@ -13,7 +13,7 @@
  * the actions it unbooking actions to a remote logging server
  * in order to monitor and review.
  * 
- * MTR devices show work but they must be registered to Webex
+ * MTR devices should work but they must be registered to Webex
  * and Hybrid Calendar enabled.
  * 
  * Full Readme, source code and license details for this macro are available 
