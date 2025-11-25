@@ -5,8 +5,8 @@
  *                    	wimills@cisco.com
  *                    	Cisco Systems
  * 
- * Version: 2-0-0
- * Released: 08/22/24
+ * Version: 2-0-1
+ * Released: 11/25/25
  * 
  * This example macro releases empty workspace bookings based
  * off configurable policies. Additionally this macro can log 
@@ -30,7 +30,6 @@ import xapi from 'xapi';
 const config = {
   profiles: [ // An array of profiles for the macro to match and apply difference behaviours
     {
-      name: 'Short Meetings',   // Name of profile for logging
       type: 'duration',         // Profile type: duration | keywords | organizer
       name: 'Short Meetings',   // Name of profile for logging
       duration: [0, 60],        // Duration of booking in minutes: From zero minutes to 60 minute meetings
@@ -44,7 +43,6 @@ const config = {
       type: 'duration',
       name: 'Between 1 and 2 hour Meetings',
       duration: [61, 180],      // Duration of booking in minutes: From 61 minutes to 180 minute meetings
-      policy: 'long meetings',
       monitor: true,
       startMonitoringDelay: 0,
       stopMonitoringAfter: 20,
@@ -91,7 +89,6 @@ const config = {
     presentation: true,               // Consider presentations as presence detected
     peopleCount: true,                // Consider peopele count as presence detected
     peoplePresence: true,             // Consider peopele presence as presence detected
-    presenceAndPeopleCount: false,    // Consider both presence and peoplecount as presence detected
     guiInteractions: true             // Consider GUI inputs as presence detected
   },
   externalLogging: {
@@ -101,7 +98,7 @@ const config = {
     url: '<You Server Webhook URL>',   // If logging service is 'webhook', give the URL of your webhook service or 'https://webexapis.com/v1/messages' for Webex
     token: '<Access Token>'            // Either the webhook Access Token or the Webex Bot token
   },
-  debugging: true
+  debugging: false
 }
 
 /*********************************************************
@@ -110,33 +107,72 @@ const config = {
 
 xapi.Event.Bookings.Start.on(event => processBookingStart(event));
 
+async function main(){
+  xapi.Config.Bookings.CheckIn.Enabled.set("True");
+  console.log("----Device Settings----");
+  let chec = await xapi.Config.Bookings.CheckIn.Enabled.get();
+  console.log("CheckIn Enabled:", chec);
+  let pres = await xapi.Config.RoomAnalytics.PeoplePresenceDetector.get();
+  console.log("PeoplePresenceDetector:", pres);
+  let peop = await xapi.Config.RoomAnalytics.PeopleCountOutOfCall.get();
+  console.log("PeopleCountOutOfCall:", peop);
+  let head = await xapi.Config.RoomAnalytics.PeoplePresence.Input.HeadDetector.get();
+  console.log("PeoplePresence.Input.HeadDetector:", head);
+  let ultr = await xapi.Config.RoomAnalytics.PeoplePresence.Input.Ultrasound.get();
+  console.log("PeoplePresence.Input.Ultrasound:", ultr);
+  
+  console.log("----Current  Status----");
+  let peopStatus = await xapi.Status.RoomAnalytics.PeoplePresence.get();
+  console.log("PeoplePresence:", peopStatus);
+  let peopCount = await xapi.Status.RoomAnalytics.PeopleCount.get();
+  console.log("PeopleCount:", peopCount);
+  console.log("-----------------------");
+  let bookings = await xapi.Command.Bookings.List();
+  if(bookings.Booking){
+      for(let booking of bookings.Booking){
+        console.log(booking.MeetingId);
+        const now = new Date();
+        const startTime = new Date(booking.Time.StartTime);
+        const endTime = new Date(booking.Time.EndTime);
+        console.debug("--Now--", now);
+        console.debug("-Start-", startTime);
+        console.debug("--End--", endTime);
+        if(now >= startTime && now < endTime){
+          console.debug("Current Booking!");
+          await startMonitor(booking);
+        }
+      }
+  } else {
+    console.debug("No bookings found.");
+  }
+}
+main();
 
-processBookingStart({ Id: 'webex-1' })
 async function processBookingStart(bookingEvt) {
   const bookingId = bookingEvt.Id;
   console.log('Booking Start Event:', bookingId);
   const booking = await xapi.Command.Bookings.Get({ Id: bookingId })
     .then(result => result.Booking)
     .catch(() => console.log('Cound not get find meeting: ', bookingId))
+  if (!booking) return;
+  await startMonitor(booking);
+}
 
-  if (!booking) return
-  console.log('Booking Details: ', JSON.stringify(booking))
+async function startMonitor(booking){
+  console.log('Booking Details: ', JSON.stringify(booking));
   const profile = mapToProfile(booking);
-  if (!profile) return
-
+  if (!profile) return;
   const mtr = await xapi.Command.MicrosoftTeams.List({ Show: 'Installed' })
     .then(() => true)
     .catch(() => false)
-
-  new workspaceMonitor(booking, profile, mtr, config.externalLogging, config.debugging)
-
+  new workspaceMonitor(booking, profile, mtr, config.externalLogging, config.debugging);
 }
 
 function mapToProfile(booking) {
   const profiles = config.profiles;
   const startTime = new Date(booking.Time.StartTime)
   const endTime = new Date(booking.Time.EndTime)
-  const duration = endTime.getMinutes() - startTime.getMinutes();
+  const duration = Math.abs(endTime.getMinutes() - startTime.getMinutes());
   const title = booking.Title;
   const organizer = booking.Organizer.FirstName;
   const profile = profiles.find(profile => compareProfile(profile, duration, title, organizer))
@@ -167,11 +203,11 @@ function compareProfile(profile, duration, title, organizer) {
     case 'organizers':
       for (let i = 0; i < profile.organizers.length; i++) {
         if (organizer == profile.organizers[i]) {
-          console.log(`Organiser [${organizer}] matched`)
+          console.log(`Organizer [${organizer}] matched`)
           return true
         }
       }
-      console.debug(`Organiser [${organizer}] wasn't matched`)
+      console.debug(`Organizer [${organizer}] wasn't matched`)
       return false
     case 'default':
       return true
@@ -208,9 +244,9 @@ class workspaceMonitor {
 
   _processEvent(type) {
     if (this._unbookTimer == null) {
-      console.log(`Event [${type}] occuried - not active timer`)
+      console.log(`Event [${type}] occurred - not active timer`)
     } else {
-      console.log(`Event [${type}] occuried - active timer - resetting`)
+      console.log(`Event [${type}] occurred - active timer - resetting`)
       this._startCountdown();
     }
   }
@@ -230,37 +266,38 @@ class workspaceMonitor {
 
   async _unbook() {
 
+    var debugText = "";
     if (this._debugging) {
-      console.log(`Unbooking Booking Id [${this._booking.Id}]] - Meeting Id [${this._booking.MeetingId}] - Debug Mode ( No Action Taken )`);
-      this._reportMacroAction(`Unbooking Booking Id [${this._booking.Id}] - Meeting Id [${this._booking.MeetingId}] - Debug Mode ( No Action Taken )`)
-      this._stopMonitoring();
-      return
+      debugText = " - Debug Mode ( No Action Taken )";
     }
+     
+    this._reportMacroAction(`Unbooking Booking Id [${this._booking.Id}]] - Meeting Id [${this._booking.MeetingId}]${debugText}`)
 
-    console.log(`Unbooking Booking Id [${this._booking.Id}]] - Meeting Id [${this._booking.MeetingId}]`);
-    this._reportMacroAction(`Unbooking Booking Id [${this._booking.Id}]] - Meeting Id [${this._booking.MeetingId}]`)
-
-    xapi.Command.Bookings.Respond({ MeetingId: this._booking.MeetingId, Type: 'Decline' })
-      .then(value => {
-        console.log(value)
-      })
-      .catch(error => {
-        console.warn(error)
+    if (!this._debugging){
+      xapi.Command.Bookings.Respond({ MeetingId: this._booking.MeetingId, Type: 'Decline' }).then(value => {
+        console.log(value);
+      }).catch(error => {
+        console.warn(error);
         this._reportMacroAction(`Unable to Unbook Booking Id [${this._booking.Id}]] - Meeting Id [${this._booking.MeetingId}] - Message:`, error.message)
       })
-
+    }
+    
     this._stopMonitoring();
   }
 
   _unbookAlert() {
 
-    console.log(`Displaying soon to unbook alert for Booking Id [${this._booking.Id}]`);
+    console.log(`Displaying unbook alert for Booking Id [${this._booking.Id}]`);
+    var plural = "s";
+    if (this._profile.alertBeforeUnbookingDuration === 1){
+      plural = "";
+    }
 
     xapi.Command.UserInterface.Message.Prompt.Display({
       Duration: 30,
       FeedbackId: 'unbookingprompt',
       Title: 'No Presence Detected',
-      Text: `Booking [${this._booking.Title}] will be Unbooked in [${this._profile.alertBeforeUnbookingDuration}] minutes`,
+      Text: `Booking [${this._booking.Title}] will be Unbooked in [${this._profile.alertBeforeUnbookingDuration}] minute${plural}`,
       "Option.1": 'Don\'t Unbook'
     });
 
@@ -376,6 +413,7 @@ class workspaceMonitor {
   }
 
   async _reportMacroAction(action) {
+    console.log(action);
     if (!this._externalLogging.enabled) return
 
     console.log('Preparing to send external logging report')
@@ -423,7 +461,6 @@ class workspaceMonitor {
         .then(result => result?.Body)
         .then(result => result?.id)
         .catch(error => console.log(`Error Sending Macros Action Data Webex Contact: ${this._externalLogging.contact} -`, error))
-
     }
   }
 
