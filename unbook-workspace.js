@@ -36,7 +36,7 @@ const config = {
       monitor: true,            // Enable monitoring for this matched profile
       startMonitoringDelay: 0,  // Number of minutes after the booking starts in which to begin monitoring
       stopMonitoringAfter: 10,  // Number of minutes after the booking starts in which to stop monitoring
-      requiredUnoccupiedDuration: 5,    // Number of minutes the workspace is unoccupied before unbooking
+      requiredUnoccupiedDuration: 2,    // Number of minutes the workspace is unoccupied before unbooking
       alertBeforeUnbookingDuration: 1   // Number of minutes before unbooking in which to alert user
     },
     {
@@ -107,7 +107,7 @@ const config = {
 
 xapi.Event.Bookings.Start.on(event => processBookingStart(event));
 
-async function main(){
+async function getStatuses(){
   xapi.Config.Bookings.CheckIn.Enabled.set("True");
   console.log("----Device Settings----");
   let chec = await xapi.Config.Bookings.CheckIn.Enabled.get();
@@ -127,6 +127,10 @@ async function main(){
   let peopCount = await xapi.Status.RoomAnalytics.PeopleCount.get();
   console.log("PeopleCount:", peopCount);
   console.log("-----------------------");
+}
+
+var workspaceBookingIds = [];
+async function main(){
   let bookings = await xapi.Command.Bookings.List();
   if(bookings.Booking){
       for(let booking of bookings.Booking){
@@ -134,7 +138,6 @@ async function main(){
         const now = new Date();
         const startTime = new Date(booking.Time.StartTime);
         const endTime = new Date(booking.Time.EndTime);
-        console.debug("--Now--", now);
         console.debug("-Start-", startTime);
         console.debug("--End--", endTime);
         if(now >= startTime && now < endTime){
@@ -146,7 +149,12 @@ async function main(){
     console.debug("No bookings found.");
   }
 }
+getStatuses();
 main();
+setInterval(async function(){
+  await main()
+}, 30000);
+
 
 async function processBookingStart(bookingEvt) {
   const bookingId = bookingEvt.Id;
@@ -159,6 +167,10 @@ async function processBookingStart(bookingEvt) {
 }
 
 async function startMonitor(booking){
+  if(workspaceBookingIds.indexOf(booking.Id) >= 0){
+    console.debug(`Booking ID ${booking.Id} already monitored.`);
+    return;
+  }
   console.log('Booking Details: ', JSON.stringify(booking));
   const profile = mapToProfile(booking);
   if (!profile) return;
@@ -220,6 +232,7 @@ function compareProfile(profile, duration, title, organizer) {
 
 class workspaceMonitor {
   constructor(booking, profile, mtr, externalLogging, debug = false) {
+    workspaceBookingIds.push(booking.Id);
     console.log(`'New Workspace Monitor started for Booking Id [${booking.Id}] using Profile [${profile.name}]`)
     if (!profile.monitor) return
 
@@ -274,12 +287,32 @@ class workspaceMonitor {
     this._reportMacroAction(`Unbooking Booking Id [${this._booking.Id}]] - Meeting Id [${this._booking.MeetingId}]${debugText}`)
 
     if (!this._debugging){
-      xapi.Command.Bookings.Respond({ MeetingId: this._booking.MeetingId, Type: 'Decline' }).then(value => {
-        console.log(value);
-      }).catch(error => {
-        console.warn(error);
-        this._reportMacroAction(`Unable to Unbook Booking Id [${this._booking.Id}]] - Meeting Id [${this._booking.MeetingId}] - Message:`, error.message)
-      })
+      console.log("Declining Booking...");
+      let declined = false;
+      try{
+        let result = await xapi.Command.Bookings.Respond({ MeetingId: this._booking.MeetingId, Type: 'Decline' })
+        console.log("Booking Declined:");
+        console.log(result);
+        if(result.status === "OK"){
+          declined = true;
+        }
+      }catch (e){
+        console.error("Decline Booking failed:")
+        console.error(e);
+      }
+
+      if(!declined){
+        console.log("Deleting Booking...");
+        try{
+          let result = await xapi.Command.Bookings.Delete({ Id: this._booking.MeetingId})
+          console.log("Booking Deleted:");
+          console.log(result);
+        }catch (e){
+          console.error("Delete Booking failed:")
+          console.error(e);
+        }
+      }
+
     }
     
     this._stopMonitoring();
@@ -395,6 +428,7 @@ class workspaceMonitor {
   // This function unsubscribes from all status changes and events
   _stopMonitoring() {
     console.log(`Stopping Workspace Monitor for Booking Id [${this._booking.Id}]`)
+    workspaceBookingIds.pop(this._booking.Id);
     this._clearMonitors();
     this._clearUnbookTimers();
   }
