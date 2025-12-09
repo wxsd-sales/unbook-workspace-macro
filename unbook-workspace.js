@@ -103,6 +103,7 @@ const config = {
   },
   debugging: false
 }
+const promptTargets = ["Controller", "RoomScheduler", "OSD"];
 
 /*********************************************************
  * Do not change below
@@ -276,8 +277,7 @@ class workspaceMonitor {
 
   _stopUnbookingCountdown() {
     console.log('Stopping countdown');
-    const targets = ["Controller", "RoomScheduler", "OSD"]
-    for(var t of targets){
+    for(var t of promptTargets){
       xapi.Command.UserInterface.Message.Prompt.Clear({ FeedbackId: `unbookingprompt-${t}` });
     }
     this._clearUnbookTimers();
@@ -344,8 +344,7 @@ class workspaceMonitor {
     });
 
     xapi.Command.Bookings.Get({ Id: this._booking.Id }).then(result => {
-        const targets = ["Controller", "RoomScheduler", "OSD"];
-        for(var t of targets){
+        for(var t of promptTargets){
           xapi.Command.UserInterface.Message.Prompt.Display({
             Duration: 30,
             FeedbackId: `unbookingprompt-${t}`,
