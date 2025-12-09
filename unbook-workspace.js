@@ -1,12 +1,15 @@
 /********************************************************
  * 
  * Macro Author:      	William Mills
- *                    	Technical Solutions Specialist 
+ *                    	Solutions Engineer
  *                    	wimills@cisco.com
  *                    	Cisco Systems
  * 
- * Version: 2-0-1
- * Released: 11/25/25
+ * Co-author:           Taylor Hanson
+ *                      tahanson@cisco.com
+ * 
+ * Version: 2-0-2
+ * Released: 12/09/25
  * 
  * This example macro releases empty workspace bookings based
  * off configurable policies. Additionally this macro can log 
@@ -36,7 +39,7 @@ const config = {
       monitor: true,            // Enable monitoring for this matched profile
       startMonitoringDelay: 0,  // Number of minutes after the booking starts in which to begin monitoring
       stopMonitoringAfter: 10,  // Number of minutes after the booking starts in which to stop monitoring
-      requiredUnoccupiedDuration: 2,    // Number of minutes the workspace is unoccupied before unbooking
+      requiredUnoccupiedDuration: 5,    // Number of minutes the workspace is unoccupied before unbooking
       alertBeforeUnbookingDuration: 1   // Number of minutes before unbooking in which to alert user
     },
     {
@@ -100,6 +103,7 @@ const config = {
   },
   debugging: false
 }
+const promptTargets = ["Controller", "RoomScheduler", "OSD"];
 
 /*********************************************************
  * Do not change below
@@ -272,9 +276,19 @@ class workspaceMonitor {
   }
 
   _stopUnbookingCountdown() {
-    console.log('Stopping countdown')
-    xapi.Command.UserInterface.Message.Prompt.Clear({ FeedbackId: 'unbookingprompt' });
+    console.log('Stopping countdown');
+    for(var t of promptTargets){
+      xapi.Command.UserInterface.Message.Prompt.Clear({ FeedbackId: `unbookingprompt-${t}` });
+    }
     this._clearUnbookTimers();
+    const comment = `Presence in Room detected. The meeting will not be unbooked.`
+    xapi.Command.Bookings.Respond({ Comment: comment, MeetingId: this._booking.MeetingId, Type: 'Accept' }).then( (result) => {
+      console.log("Booking Accepted or Overridden :");
+      console.log(result);
+    }).catch(e => {
+      console.error("Accept Booking failed:")
+      console.error(e);
+    });
   }
 
   async _unbook() {
@@ -288,29 +302,23 @@ class workspaceMonitor {
 
     if (!this._debugging){
       console.log("Declining Booking...");
-      let declined = false;
       try{
-        let result = await xapi.Command.Bookings.Respond({ MeetingId: this._booking.MeetingId, Type: 'Decline' })
+        let result = await xapi.Command.Bookings.Respond({ Comment: "No Presence in Room detected.", MeetingId: this._booking.MeetingId, Type: 'Decline' })
         console.log("Booking Declined:");
         console.log(result);
-        if(result.status === "OK"){
-          declined = true;
-        }
       }catch (e){
         console.error("Decline Booking failed:")
         console.error(e);
       }
 
-      if(!declined){
-        console.log("Deleting Booking...");
-        try{
-          let result = await xapi.Command.Bookings.Delete({ Id: this._booking.MeetingId})
-          console.log("Booking Deleted:");
-          console.log(result);
-        }catch (e){
-          console.error("Delete Booking failed:")
-          console.error(e);
-        }
+      console.log("Deleting Booking...");
+      try{
+        let result = await xapi.Command.Bookings.Delete({ Id: this._booking.Id})
+        console.log("Booking Deleted:");
+        console.log(result);
+      }catch (e){
+        console.warn("Delete Booking failed (may not be an issue if Decline was successful):")
+        console.warn(e);
       }
 
     }
@@ -326,13 +334,30 @@ class workspaceMonitor {
       plural = "";
     }
 
-    xapi.Command.UserInterface.Message.Prompt.Display({
-      Duration: 30,
-      FeedbackId: 'unbookingprompt',
-      Title: 'No Presence Detected',
-      Text: `Booking [${this._booking.Title}] will be Unbooked in [${this._profile.alertBeforeUnbookingDuration}] minute${plural}`,
-      "Option.1": 'Don\'t Unbook'
+    const comment = `No Presence in Room detected. Your meeting will be Declined in ${this._profile.alertBeforeUnbookingDuration} minute${plural}.`
+    xapi.Command.Bookings.Respond({ Comment: comment, MeetingId: this._booking.MeetingId, Type: 'Accept' }).then( (result) => {
+      console.log("Booking temporarily Accepted:");
+      console.log(result);
+    }).catch(e => {
+      console.error("Temporary Accept Booking failed:")
+      console.error(e);
     });
+
+    xapi.Command.Bookings.Get({ Id: this._booking.Id }).then(result => {
+        for(var t of promptTargets){
+          xapi.Command.UserInterface.Message.Prompt.Display({
+            Duration: 30,
+            FeedbackId: `unbookingprompt-${t}`,
+            Title: 'No Presence Detected',
+            Text: `Booking [${this._booking.Title}] will be Unbooked in [${this._profile.alertBeforeUnbookingDuration}] minute${plural}`,
+            "Option.1": 'Don\'t Unbook',
+            Target: t
+          });
+        }
+    }).catch(e => {
+      console.warn("Prompt not displayed. Booking no longer exists.");
+    })
+
 
   }
 
@@ -415,7 +440,14 @@ class workspaceMonitor {
       console.debug(`Monitoring PeoplePresence for Booking Id [${this._booking.Id}]`)
       this._monitors.push(xapi.Status.RoomAnalytics.PeoplePresence.on(() => this._checkPresence()))
     }
-
+  
+    xapi.Event.UserInterface.Message.Prompt.Response.on((event) => {
+      console.log("Message.Prompt.Response:")
+      console.log(event);
+      if(event.FeedbackId.indexOf("unbookingprompt") >= 0 && event.OptionId === "1"){
+        this._stopUnbookingCountdown();
+      }
+    })
     if (monitor.guiInteractions) {
       console.debug(`Monitoring GUI Interactions for Booking Id [${this._booking.Id}]`)
       this._monitors.push(xapi.Event.UserInterface.Extensions.Panel.Clicked.on(() => this._stopUnbookingCountdown()));
@@ -428,9 +460,9 @@ class workspaceMonitor {
   // This function unsubscribes from all status changes and events
   _stopMonitoring() {
     console.log(`Stopping Workspace Monitor for Booking Id [${this._booking.Id}]`)
-    workspaceBookingIds.pop(this._booking.Id);
     this._clearMonitors();
     this._clearUnbookTimers();
+    workspaceBookingIds.pop(this._booking.Id);
   }
 
   _clearMonitors() {
