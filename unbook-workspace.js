@@ -1,15 +1,12 @@
 /********************************************************
  * 
  * Macro Author:      	William Mills
- *                    	Solutions Engineer
+ *                    	Technical Solutions Specialist 
  *                    	wimills@cisco.com
  *                    	Cisco Systems
  * 
- * Co-author:           Taylor Hanson
- *                      tahanson@cisco.com
- * 
- * Version: 2-0-2
- * Released: 12/09/25
+ * Version: 2-0-3
+ * Released: 01/26/26
  * 
  * This example macro releases empty workspace bookings based
  * off configurable policies. Additionally this macro can log 
@@ -39,7 +36,7 @@ const config = {
       monitor: true,            // Enable monitoring for this matched profile
       startMonitoringDelay: 0,  // Number of minutes after the booking starts in which to begin monitoring
       stopMonitoringAfter: 10,  // Number of minutes after the booking starts in which to stop monitoring
-      requiredUnoccupiedDuration: 5,    // Number of minutes the workspace is unoccupied before unbooking
+      requiredUnoccupiedDuration: 2,    // Number of minutes the workspace is unoccupied before unbooking
       alertBeforeUnbookingDuration: 1   // Number of minutes before unbooking in which to alert user
     },
     {
@@ -103,7 +100,6 @@ const config = {
   },
   debugging: false
 }
-const promptTargets = ["Controller", "RoomScheduler", "OSD"];
 
 /*********************************************************
  * Do not change below
@@ -248,6 +244,7 @@ class workspaceMonitor {
     this._unbookTimer = null;
     this._unbookAlertTimer = null;
     this._monitors = [];
+    this._accepted = false;
     this._startMonitoringTimer = setTimeout(this._startMonitoring.bind(this), profile.startMonitoringAfter * 60 * 1000)
     this._stopMonitoringTimer = setTimeout(this._stopMonitoring.bind(this), profile.stopMonitoringAfter * 60 * 1000)
     this._monitors.push(xapi.Event.Bookings.End.on(bookingEvt => this._processBookingEnd(bookingEvt.id)));
@@ -277,18 +274,23 @@ class workspaceMonitor {
 
   _stopUnbookingCountdown() {
     console.log('Stopping countdown');
-    for(var t of promptTargets){
+    const targets = ["Controller", "RoomScheduler", "OSD"]
+    for(var t of targets){
       xapi.Command.UserInterface.Message.Prompt.Clear({ FeedbackId: `unbookingprompt-${t}` });
     }
     this._clearUnbookTimers();
     const comment = `Presence in Room detected. The meeting will not be unbooked.`
-    xapi.Command.Bookings.Respond({ Comment: comment, MeetingId: this._booking.MeetingId, Type: 'Accept' }).then( (result) => {
-      console.log("Booking Accepted or Overridden :");
-      console.log(result);
-    }).catch(e => {
-      console.error("Accept Booking failed:")
-      console.error(e);
-    });
+    if(!this._accepted){
+      this._accepted = true;
+      xapi.Command.Bookings.Respond({ Comment: comment, MeetingId: this._booking.MeetingId, Type: 'Accept' }).then( (result) => {
+        console.log("Booking Accepted or Overridden :");
+        console.log(result);
+      }).catch(e => {
+        console.error("Accept Booking failed:")
+        console.error(e);
+      });
+    }
+    
   }
 
   async _unbook() {
@@ -302,6 +304,7 @@ class workspaceMonitor {
 
     if (!this._debugging){
       console.log("Declining Booking...");
+      this._accepted = false;
       try{
         let result = await xapi.Command.Bookings.Respond({ Comment: "No Presence in Room detected.", MeetingId: this._booking.MeetingId, Type: 'Decline' })
         console.log("Booking Declined:");
@@ -334,7 +337,8 @@ class workspaceMonitor {
       plural = "";
     }
 
-    const comment = `No Presence in Room detected. Your meeting will be Declined in ${this._profile.alertBeforeUnbookingDuration} minute${plural}.`
+    const comment = `No Presence in Room detected. Your meeting will be Declined in ${this._profile.alertBeforeUnbookingDuration} minute${plural}.`;
+    this._accepted = false;
     xapi.Command.Bookings.Respond({ Comment: comment, MeetingId: this._booking.MeetingId, Type: 'Accept' }).then( (result) => {
       console.log("Booking temporarily Accepted:");
       console.log(result);
@@ -344,7 +348,8 @@ class workspaceMonitor {
     });
 
     xapi.Command.Bookings.Get({ Id: this._booking.Id }).then(result => {
-        for(var t of promptTargets){
+        const targets = ["Controller", "RoomScheduler", "OSD"];
+        for(var t of targets){
           xapi.Command.UserInterface.Message.Prompt.Display({
             Duration: 30,
             FeedbackId: `unbookingprompt-${t}`,
