@@ -1,0 +1,73 @@
+{
+   "profiles": [ 
+     {
+       "type": "duration",        
+       "name": "Short Meetings",   
+       "duration": [0, 60],        
+       "monitor": true,         
+       "startMonitoringDelay": 0,  
+       "stopMonitoringAfter": 10,  
+       "requiredUnoccupiedDuration": 2, 
+       "alertBeforeUnbookingDuration": 1  
+     },
+     {
+       "type": "duration",
+       "name": "Between 1 and 2 hour Meetings",
+       "duration": [61, 180],     
+       "monitor": true,
+       "startMonitoringDelay": 0,
+       "stopMonitoringAfter": 20,
+       "requiredUnoccupiedDuration": 5,
+       "alertBeforeUnbookingDuration": 1
+ 
+     },
+     {
+       "type": "duration",
+       "name": "All day meetings - Don\"t monitor during lunch hours",
+       "duration": [180, 480],            
+       "monitor": true,
+       "startMonitoringDelay": 0,
+       "stopMonitoringAfter": 10,
+       "requiredUnoccupiedDuration": 5,
+       "alertBeforeUnbookingDuration": 1
+     },
+     {
+       "type": "keywords",                
+       "name": "Meeting Title Keyword", 
+       "keywords": ["Training", "Test"], 
+       "monitor": true,                    
+       "startMonitoringDelay": 0,         
+       "stopMonitoringAfter": 5,           
+       "requiredUnoccupiedDuration": 1,   
+       "alertBeforeUnbookingDuration": 1 
+     },
+     {
+       "type": "organizers",            
+       "name": "Organizers Name",      
+       "organizers": ["John Smith"],    
+       "monitor": false                  
+     },
+     {
+       "type": "default",
+       "name": "Default Booking Handling Profile",
+       "monitor": true,
+       "startMonitoringDelay": 0,
+       "stopMonitoringAfter": 10,
+       "requiredUnoccupiedDuration": 5
+     }],
+   "presenceDetection": {
+     "activeCalls": true,               
+     "presentation": true,         
+     "peopleCount": true,             
+     "peoplePresence": true,            
+     "guiInteractions": true          
+   },
+   "externalLogging": {
+     "enabled": false,                  
+     "type": "bot",                      
+     "contact": "user@example.com",     
+     "url": "<You Server Webhook URL>", 
+     "token": "<Access Token>"           
+   },
+   "debugging": false
+ }

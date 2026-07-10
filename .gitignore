@@ -26,6 +26,7 @@
 # visualstudio
 
 
+.cursor/
 
 ### Android ###
 # Gradle files

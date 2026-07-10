@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function initMomentumTheme() {
+        const getHashTheme = () => {
+          const raw = window.location.hash.startsWith("#")
+            ? window.location.hash.slice(1)
+            : window.location.hash;
+
+          if (!raw) {
+            return null;
+          }
+
+          const theme = new URLSearchParams(raw).get("theme");
+          return theme === "light" || theme === "dark" ? theme : null;
+        };
+
+        const apply = () => {
+          const forcedTheme = getHashTheme();
+          const dark = forcedTheme
+            ? forcedTheme === "dark"
+            : window.matchMedia("(prefers-color-scheme: dark)").matches;
+          const root = document.documentElement;
+
+          root.classList.remove(
+            "mds-theme-stable-lightWebex",
+            "mds-theme-stable-darkWebex",
+          );
+          root.classList.add(
+            dark ? "mds-theme-stable-darkWebex" : "mds-theme-stable-lightWebex",
+          );
+          root.style.colorScheme = dark ? "dark" : "light";
+        };
+
+        apply();
+        window.addEventListener("hashchange", apply);
+        window
+          .matchMedia("(prefers-color-scheme: dark)")
+          .addEventListener("change", () => {
+            if (!getHashTheme()) {
+              apply();
+            }
+          });
+      })();
+    </script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@momentum-design/icons@0.54.0/dist/data/MomentumFontIcons.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@momentum-design/tokens@0.10.4/dist/css/theme/webex/light-stable.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@momentum-design/tokens@0.10.4/dist/css/theme/webex/dark-stable.css"
+    />
+    <title>Unbook Workspace Macro</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" href="data:image/png;base64,iVBORw0KGgo=" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="app-header__brand">
+        <span class="app-header__product">Unbook Workspace Macro</span>
+      </div>
+      <div class="app-header__actions">
+        <div class="theme-select" id="theme-select" data-open="false">
+          <button
+            id="theme-select-button"
+            class="secondary-button theme-select-button"
+            type="button"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+          >
+            <span
+              id="theme-select-current-icon"
+              class="icon icon-laptop-regular theme-select-current-icon"
+              aria-hidden="true"
+            ></span>
+            <span id="theme-select-label">System</span>
+            <span
+              class="icon icon-arrow-triangle-down-filled theme-select-caret"
+              aria-hidden="true"
+            ></span>
+          </button>
+          <div
+            id="theme-select-menu"
+            class="theme-select-menu"
+            role="listbox"
+            aria-label="Theme"
+            hidden
+          >
+            <button
+              class="theme-select-option"
+              type="button"
+              role="option"
+              data-theme-choice="system"
+              aria-selected="true"
+            >
+              <span class="icon icon-laptop-regular" aria-hidden="true"></span>
+              <span>System</span>
+            </button>
+            <button
+              class="theme-select-option"
+              type="button"
+              role="option"
+              data-theme-choice="light"
+              aria-selected="false"
+            >
+              <span
+                class="icon icon-brightness-high-filled"
+                aria-hidden="true"
+              ></span>
+              <span>Light</span>
+            </button>
+            <button
+              class="theme-select-option"
+              type="button"
+              role="option"
+              data-theme-choice="dark"
+              aria-selected="false"
+            >
+              <span
+                class="icon icon-quiet-hours-presence-filled"
+                aria-hidden="true"
+              ></span>
+              <span>Dark</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <div class="app-content">
+        <div class="tab-bar" role="tablist" aria-label="Configuration steps">
+          <button
+            class="tab"
+            id="tab-profiles"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            aria-controls="profiles"
+            data-tab-target="profiles"
+          >
+            <span
+              class="icon icon-calendar-week-regular"
+              aria-hidden="true"
+            ></span>
+            <span class="tab__label">Profiles</span>
+          </button>
+          <button
+            class="tab"
+            id="tab-sensors"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="sensors"
+            tabindex="-1"
+            data-tab-target="sensors"
+          >
+            <span
+              class="icon icon-adjust-horizontal-regular"
+              aria-hidden="true"
+            ></span>
+            <span class="tab__label">Sensors</span>
+          </button>
+          <button
+            class="tab"
+            id="tab-logging"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="logging"
+            tabindex="-1"
+            data-tab-target="logging"
+          >
+            <span
+              class="icon icon-data-management-regular"
+              aria-hidden="true"
+            ></span>
+            <span class="tab__label">Logging</span>
+          </button>
+          <button
+            class="tab"
+            id="tab-export"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="export"
+            tabindex="-1"
+            data-tab-target="export"
+          >
+            <span class="icon icon-save-regular" aria-hidden="true"></span>
+            <span class="tab__label">Export</span>
+          </button>
+        </div>
+
+        <div class="page-stack" aria-live="polite">
+          <!-- Profiles -->
+          <section
+            class="webapp-function"
+            id="profiles"
+            role="tabpanel"
+            aria-labelledby="tab-profiles"
+            tabindex="0"
+          >
+            <h2>Booking Monitor Profiles</h2>
+            <p>
+              Profiles decide how different bookings are handled. Each incoming
+              booking is matched against these profiles in order, and the first
+              match determines whether and how the workspace is monitored for
+              presence. Keep a <strong>Default</strong> profile last as a
+              catch&#8209;all.
+            </p>
+
+            <div id="profileList" class="profile-list"></div>
+
+            <div class="step-actions">
+              <button
+                id="addProfileBtn"
+                type="button"
+                class="icon-button icon-button--with-label secondary-button"
+              >
+                <span class="icon icon-plus-bold" aria-hidden="true"></span>
+                <span class="icon-button__label">Add Profile</span>
+              </button>
+            </div>
+          </section>
+
+          <!-- Sensors / Presence detection -->
+          <section
+            class="webapp-function"
+            id="sensors"
+            role="tabpanel"
+            aria-labelledby="tab-sensors"
+            tabindex="0"
+            hidden
+          >
+            <h2>Presence Detection Sensors</h2>
+            <p>
+              Choose which signals count as someone being present in the
+              workspace. If any enabled signal reports presence, the booking is
+              kept; when none do, the unbooking countdown begins.
+            </p>
+
+            <div class="toggle-list" id="presenceList">
+              <div class="toggle-row">
+                <div class="toggle-row__text">
+                  <span class="toggle-row__label">Active Calls</span>
+                  <span class="toggle-row__hint"
+                    >Treat an active call (including Microsoft Teams) as
+                    presence.</span
+                  >
+                </div>
+                <label class="switch">
+                  <input
+                    type="checkbox"
+                    class="switch__input"
+                    data-presence="activeCalls"
+                  />
+                  <span class="switch__track"
+                    ><span class="switch__thumb"></span
+                  ></span>
+                </label>
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-row__text">
+                  <span class="toggle-row__label">Presentation</span>
+                  <span class="toggle-row__hint"
+                    >Treat an active local or shared presentation as
+                    presence.</span
+                  >
+                </div>
+                <label class="switch">
+                  <input
+                    type="checkbox"
+                    class="switch__input"
+                    data-presence="presentation"
+                  />
+                  <span class="switch__track"
+                    ><span class="switch__thumb"></span
+                  ></span>
+                </label>
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-row__text">
+                  <span class="toggle-row__label">People Count</span>
+                  <span class="toggle-row__hint"
+                    >Treat a room analytics people count above zero as
+                    presence.</span
+                  >
+                </div>
+                <label class="switch">
+                  <input
+                    type="checkbox"
+                    class="switch__input"
+                    data-presence="peopleCount"
+                  />
+                  <span class="switch__track"
+                    ><span class="switch__thumb"></span
+                  ></span>
+                </label>
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-row__text">
+                  <span class="toggle-row__label">People Presence</span>
+                  <span class="toggle-row__hint"
+                    >Treat the people presence detector (ultrasound / head
+                    detection) as presence.</span
+                  >
+                </div>
+                <label class="switch">
+                  <input
+                    type="checkbox"
+                    class="switch__input"
+                    data-presence="peoplePresence"
+                  />
+                  <span class="switch__track"
+                    ><span class="switch__thumb"></span
+                  ></span>
+                </label>
+              </div>
+              <div class="toggle-row">
+                <div class="toggle-row__text">
+                  <span class="toggle-row__label">GUI Interactions</span>
+                  <span class="toggle-row__hint"
+                    >Treat touch panel and widget interactions as
+                    presence.</span
+                  >
+                </div>
+                <label class="switch">
+                  <input
+                    type="checkbox"
+                    class="switch__input"
+                    data-presence="guiInteractions"
+                  />
+                  <span class="switch__track"
+                    ><span class="switch__thumb"></span
+                  ></span>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <!-- Logging -->
+          <section
+            class="webapp-function"
+            id="logging"
+            role="tabpanel"
+            aria-labelledby="tab-logging"
+            tabindex="0"
+            hidden
+          >
+            <h2>External Logging</h2>
+            <p>
+              Optionally send a notification each time the macro unbooks a
+              workspace, either to a Webex space / person via a bot, or to your
+              own webhook endpoint.
+            </p>
+
+            <div class="toggle-row">
+              <div class="toggle-row__text">
+                <span class="toggle-row__label">Enable External Logging</span>
+                <span class="toggle-row__hint"
+                  >When off, actions are only logged to the device console.</span
+                >
+              </div>
+              <label class="switch">
+                <input
+                  type="checkbox"
+                  class="switch__input"
+                  id="loggingEnabled"
+                />
+                <span class="switch__track"
+                  ><span class="switch__thumb"></span
+                ></span>
+              </label>
+            </div>
+
+            <form class="config-form" id="loggingFields">
+              <div class="field">
+                <label class="field__label" for="loggingType"
+                  >Logging Service</label
+                >
+                <div class="select-wrap">
+                  <select class="field__input field__select" id="loggingType">
+                    <option value="bot">Webex Bot</option>
+                    <option value="webhook">Webhook</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field" data-logging-group="contact">
+                <label class="field__label" for="loggingContact"
+                  >Contact / Room ID</label
+                >
+                <input
+                  class="field__input"
+                  type="text"
+                  id="loggingContact"
+                  autocomplete="off"
+                  placeholder="person@example.com or a Webex roomId"
+                />
+                <span class="field__hint"
+                  >Used by the Webex Bot service to notify a person (email) or a
+                  space (roomId).</span
+                >
+              </div>
+              <div class="field" data-logging-group="url">
+                <label class="field__label" for="loggingUrl">Server URL</label>
+                <input
+                  class="field__input"
+                  type="url"
+                  id="loggingUrl"
+                  autocomplete="off"
+                  placeholder="https://webexapis.com/v1/messages"
+                />
+                <span class="field__hint"
+                  >For a Webex Bot use
+                  <code>https://webexapis.com/v1/messages</code>. For a webhook
+                  use your own endpoint URL.</span
+                >
+              </div>
+              <div class="field">
+                <label class="field__label" for="loggingToken"
+                  >Access Token</label
+                >
+                <input
+                  class="field__input"
+                  type="password"
+                  id="loggingToken"
+                  autocomplete="off"
+                  placeholder="Webex Bot token or webhook access token"
+                />
+              </div>
+            </form>
+
+            <div class="config-divider" role="separator"></div>
+
+            <div class="toggle-row">
+              <div class="toggle-row__text">
+                <span class="toggle-row__label">Debugging Mode</span>
+                <span class="toggle-row__hint"
+                  >Log the actions the macro would take without actually
+                  declining or deleting bookings.</span
+                >
+              </div>
+              <label class="switch">
+                <input type="checkbox" class="switch__input" id="debugging" />
+                <span class="switch__track"
+                  ><span class="switch__thumb"></span
+                ></span>
+              </label>
+            </div>
+          </section>
+
+          <!-- Export -->
+          <section
+            class="webapp-function"
+            id="export"
+            role="tabpanel"
+            aria-labelledby="tab-export"
+            tabindex="0"
+            hidden
+          >
+            <h2>Export Macro</h2>
+            <p>
+              Download a ready&#8209;to&#8209;install copy of
+              <code>unbook-workspace.js</code> with your configuration applied.
+              The generated <code>config</code> block below is inserted between
+              the <code>Configuration Start</code> and
+              <code>Configuration End</code> markers in the macro, leaving the
+              rest of the code untouched. You can also copy just the config block
+              to paste into an existing macro.
+            </p>
+
+            <div class="code-output">
+              <div class="code-output__header">
+                <span class="field__label">Generated config</span>
+                <div class="code-output__actions">
+                  <button
+                    id="copyConfigBtn"
+                    type="button"
+                    class="icon-button icon-button--with-label secondary-button"
+                  >
+                    <span class="icon icon-copy-bold" aria-hidden="true"></span>
+                    <span class="icon-button__label">Copy config</span>
+                  </button>
+                  <button
+                    id="downloadMacroBtn"
+                    type="button"
+                    class="icon-button icon-button--with-label"
+                  >
+                    <span
+                      class="icon icon-save-regular"
+                      aria-hidden="true"
+                    ></span>
+                    <span class="icon-button__label">Download Macro</span>
+                  </button>
+                </div>
+              </div>
+              <pre
+                class="code-output__command"
+              ><code id="configPreview"></code></pre>
+            </div>
+
+            <p class="export-status" id="exportStatus" role="status" hidden></p>
+          </section>
+        </div>
+      </div>
+    </main>
+
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

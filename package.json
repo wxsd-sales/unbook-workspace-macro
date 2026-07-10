@@ -1,0 +1,34 @@
+{
+  "name": "unbook-workspace-macro",
+  "version": "3.0.0",
+  "description": "Example Workspace Unbooking macro for Cisco Collaboration Devicess.",
+  "keywords": [
+    "macros",
+    "collaboration"
+  ],
+  "homepage": "https://github.com/wxsd-sales/unbook-workspace-macro#readme",
+  "bugs": {
+    "url": "https://github.com/wxsd-sales/unbook-workspace-macro/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wxsd-sales/unbook-workspace-macro.git"
+  },
+  "license": "MIT",
+  "author": "William Mills",
+  "type": "module",
+  "scripts": {
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --runInBand",
+    "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watchAll --runInBand"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^xapi$": "jest-mock-xapi"
+    }
+  },
+  "devDependencies": {
+    "jest": "^30.4.2",
+    "jest-mock-xapi": "^1.0.6"
+  }
+}
