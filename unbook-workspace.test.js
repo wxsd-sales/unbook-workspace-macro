@@ -168,12 +168,17 @@ function matchedProfiles(logSpy) {
 
 describe("Unbooking Workspace Macro Tests", () => {
   let logSpy;
+  let debugSpy;
+  let errorSpy;
+  let warnSpy;
 
   beforeEach(() => {
     jest.resetModules();
     jest.useFakeTimers();
     logSpy = jest.spyOn(console, "log").mockImplementation(() => {});
-    // jest.spyOn(console, "warn").mockImplementation(() => {});
+    debugSpy = jest.spyOn(console, "debug").mockImplementation(() => {});
+    errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(async () => {
@@ -402,9 +407,9 @@ describe("Unbooking Workspace Macro Tests", () => {
       expect(declineCall[0].Comment).toContain("Unbooked Time");
       expect(declineCall[0].Comment).toContain("Saved Time");
 
-      expect(xapi.Command.Bookings.Delete).toHaveBeenCalledWith({
-        Id: booking.Id,
-      });
+      // When Respond succeeds the booking is declined, so no Delete fallback
+      // is needed.
+      expect(xapi.Command.Bookings.Delete).not.toHaveBeenCalled();
       expect(xapi.Command.HttpClient.Post).toHaveBeenCalledWith(
         expect.objectContaining({
           Url: "https://logging.example.test/hook",
@@ -424,10 +429,13 @@ describe("Unbooking Workspace Macro Tests", () => {
 
       await settleTimers();
 
-      // Booking is still released with default (disabled) logging...
-      expect(xapi.Command.Bookings.Delete).toHaveBeenCalledWith({
-        Id: booking.Id,
-      });
+      // Booking is still released (declined) with default (disabled) logging...
+      expect(xapi.Command.Bookings.Respond).toHaveBeenCalledWith(
+        expect.objectContaining({
+          Type: "Decline",
+          MeetingId: booking.MeetingId,
+        }),
+      );
       // ...but the logging API must not be called.
       expect(xapi.Command.HttpClient.Post).not.toHaveBeenCalled();
     });
@@ -481,12 +489,53 @@ describe("Unbooking Workspace Macro Tests", () => {
 
       await settleTimers();
 
-      expect(xapi.Command.Bookings.Delete).toHaveBeenCalledWith({
-        Id: booking.Id,
-      });
+      expect(xapi.Command.Bookings.Respond).toHaveBeenCalledWith(
+        expect.objectContaining({
+          Type: "Decline",
+          MeetingId: booking.MeetingId,
+        }),
+      );
       expect(
         xapi.Command.UserInterface.Message.Prompt.Display,
       ).not.toHaveBeenCalled();
+    });
+
+    it("deletes by MeetingId when Respond throws because the device is the organizer", async () => {
+      const { default: xapi } = await import("xapi");
+      xapi.reset();
+      mockCoreStatus(xapi);
+      mockRoomAnalytics(xapi, 0);
+
+      const booking = createMockBooking(xapi, { duration: 30 });
+
+      // A device that owns the hybrid calendar mailbox can be the meeting
+      // organizer, in which case Bookings.Respond is rejected.
+      xapi.Command.Bookings.Respond.mockRejectedValue({
+        code: 1,
+        message:
+          "You can't respond to this meeting because you're the meeting organizer.",
+      });
+
+      await loadMacro(xapi);
+      await settleTimers();
+
+      // Respond is always attempted first.
+      expect(xapi.Command.Bookings.Respond).toHaveBeenCalledWith(
+        expect.objectContaining({
+          Type: "Decline",
+          MeetingId: booking.MeetingId,
+        }),
+      );
+
+      // Only when Respond fails does it fall back to Delete, and it must delete
+      // by MeetingId so the hybrid calendar backend event is removed (deleting
+      // by the local Id would only remove the local booking).
+      expect(xapi.Command.Bookings.Delete).toHaveBeenCalledWith({
+        MeetingId: booking.MeetingId,
+      });
+      expect(xapi.Command.Bookings.Delete).not.toHaveBeenCalledWith(
+        expect.objectContaining({ Id: expect.anything() }),
+      );
     });
   });
 

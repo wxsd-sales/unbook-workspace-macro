@@ -5,8 +5,8 @@
  *                    	wimills@cisco.com
  *                    	Cisco Systems
  *
- * Version: 3-0-0
- * Released: 07/10/26
+ * Version: 3-0-1
+ * Released: 07/15/26
  *
  * This example macro releases empty workspace bookings based
  * off configurable policies. Additionally this macro can log
@@ -99,7 +99,7 @@ const config = {
     enabled: false, // Enable or Disable External Logging of macro events: true | false
     type: "bot", // Type of logging service: 'webhook' | 'bot'
     contact: "user@example.com", // If logging service is 'bot', give the contact or roomId to notify
-    url: "<You Server Webhook URL>", // If logging service is 'webhook', give the URL of your webhook service or 'https://webexapis.com/v1/messages' for Webex
+    url: "https://example.com/webhook", // If logging service is 'webhook', give the URL of your webhook service or 'https://webexapis.com/v1/messages' for Webex
     token: "<Access Token>", // Either the webhook Access Token or the Webex Bot token
   },
   debugging: false,
@@ -322,7 +322,10 @@ class workspaceMonitor {
     // alert window. Profiles without alertBeforeUnbookingDuration (e.g. the
     // default profile) would otherwise compute NaN and fire immediately.
     const alertBefore = this._profile.alertBeforeUnbookingDuration;
-    if (alertBefore > 0 && alertBefore <= this._profile.requiredUnoccupiedDuration) {
+    if (
+      alertBefore > 0 &&
+      alertBefore <= this._profile.requiredUnoccupiedDuration
+    ) {
       const alertDelayMinutes =
         this._profile.requiredUnoccupiedDuration - alertBefore;
       this._unbookAlertTimer = setTimeout(
@@ -371,46 +374,46 @@ class workspaceMonitor {
   }
 
   async _unbook() {
-    var debugText = "";
-    if (this._debugging) {
-      debugText = " - Debug Mode ( No Action Taken )";
-    }
+   
 
     const summary = this._unbookSummary();
 
-    this._reportMacroAction(
-      `Unbooking Booking Id [${this._booking.Id}]] - Meeting Id [${this._booking.MeetingId}]${debugText} - ${summary}`,
-    );
+
+    let resultText = this._debugging
+    ? " - Debug Mode ( No Action Taken )"
+    : "";
 
     if (!this._debugging) {
-      console.log("Declining Booking...");
+      console.log(
+        `Declining Booking - Meeting Id [${this._booking.MeetingId}]...`,
+      );
       try {
-        let result = await xapi.Command.Bookings.Respond({
+        const result = await xapi.Command.Bookings.Respond({
           Comment: summary,
           MeetingId: this._booking.MeetingId,
           Type: "Decline",
         });
-        console.log("Booking Declined:");
-        console.log(result);
-      } catch (e) {
-        console.error("Decline Booking failed:");
-        console.error(e);
-      }
 
-      console.log("Deleting Booking...");
-      try {
-        let result = await xapi.Command.Bookings.Delete({
-          Id: this._booking.Id,
-        });
-        console.log("Booking Deleted:");
-        console.log(result);
-      } catch (e) {
-        console.warn(
-          "Delete Booking failed (may not be an issue if Decline was successful):",
-        );
-        console.warn(e);
+        resultText = `Booking Declined - Meeting Id [${this._booking.MeetingId}] - Result: ${JSON.stringify(result)}`;
+      
+      } catch (declineError) {
+        console.debug(`Decline Booking failed - ${JSON.stringify(declineError)}`);
+        console.log(`Trying Delete Booking - Meeting Id [${this._booking.MeetingId}]...`);
+        try {
+          const result = await xapi.Command.Bookings.Delete({
+            MeetingId: this._booking.MeetingId,
+          });
+          resultText = `Booking Deleted - Meeting Id [${this._booking.MeetingId}] - Result: ${JSON.stringify(result)}`;
+        } catch (deleteError) {
+          resultText = `Booking Delete failed - Meeting Id [${this._booking.MeetingId}] - Result: ${JSON.stringify(deleteError)}`;
+        }
       }
     }
+
+    this._reportMacroAction(
+      `Unbooking Booking Id [${this._booking.Id}]] - Meeting Id [${this._booking.MeetingId}] - ${summary} - Result: ${resultText}`,
+    );
+
 
     this._stopMonitoring();
   }
@@ -473,7 +476,8 @@ class workspaceMonitor {
     }
 
     if (monitor.peopleCount) {
-      const peopleCount = await xapi.Status.RoomAnalytics.PeopleCount.Current.get();
+      const peopleCount =
+        await xapi.Status.RoomAnalytics.PeopleCount.Current.get();
       detections.push({ type: "peopleCount", result: peopleCount > 0 });
     }
 
@@ -539,7 +543,9 @@ class workspaceMonitor {
         `Monitoring PeopleCount for Booking Id [${this._booking.Id}]`,
       );
       this._monitors.push(
-        xapi.Status.RoomAnalytics.PeopleCount.Current.on(() => this._checkPresence()),
+        xapi.Status.RoomAnalytics.PeopleCount.Current.on(() =>
+          this._checkPresence(),
+        ),
       );
     }
 
@@ -692,7 +698,6 @@ class workspaceMonitor {
     }
   }
 }
-
 
 // Config export for testing only
 export { config };
