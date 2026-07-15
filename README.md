@@ -112,8 +112,12 @@ gantt
 
 ```
 
+<details>
+<summary>Show Macro Flow Chart</summary>
+
 ![Unbook Workspace Macro](https://github.com/wxsd-sales/unbook-workspace-macro/assets/21026209/b99a69ac-9e65-481f-af86-48dee2598eee)
 
+</details>
 
 
 ## Setup
@@ -126,9 +130,48 @@ gantt
 
 ### Installation Steps:
 
-1. Download the ``unbook-workspace.js`` file and upload it to your Webex Devices Macro editor via the web interface.
-2. Configure the macros monitoring policies, presence detection and external logging (optional) as required, there are comments for each field to help with the configuration.
-3. Enable the Macro on the editor.
+There are two ways to configure and install the macro. You can either edit the configuration directly inside the macro file, or use the hosted **Configuration Wizard** web app to build your configuration visually and download either just the config block or a fully preconfigured macro.
+
+#### Option 1 – Configure the macro manually
+
+1. Download the ``unbook-workspace.js`` file from this repository.
+2. Open the file in a text editor and locate the configuration object between the ``Configuration Start`` and ``Configuration End`` comment markers near the top of the file:
+
+   ```js
+   /*********************************************************
+    * Configuration Start
+    **********************************************************/
+
+   const config = {
+     profiles: [ /* ... */ ],
+     presenceDetection: { /* ... */ },
+     externalLogging: { /* ... */ },
+     debugging: false,
+   };
+
+   /*********************************************************
+    * Configuration End
+    **********************************************************/
+   ```
+
+3. Edit the ``config`` object to set your monitoring policies (``profiles``), presence detection sources (``presenceDetection``) and external logging (``externalLogging``, optional). Each field has an inline comment to help with the configuration. See the [Overview](#overview) section above for details on each profile type.
+4. In the Webex device web interface, go to **Macro Editor**, create a new macro, and paste in (or import) your edited ``unbook-workspace.js`` file.
+5. Save the macro and toggle it **On** to enable it.
+
+#### Option 2 – Use the Configuration Wizard web app
+
+The [Configuration Wizard](https://wxsd-sales.github.io/unbook-workspace-macro/webapp/) provides a web UI to build your configuration without editing code by hand, and can export either the config block or the complete preconfigured macro.
+
+1. Open the Configuration Wizard: **https://wxsd-sales.github.io/unbook-workspace-macro/webapp/**
+2. Use the tabs to build your configuration:
+   - **Profiles** – add, remove and order the matching profiles (duration, keywords, organizers and a single default profile) and set their monitoring timers.
+   - **Sensors** – choose which presence-detection sources are used (active calls, presentation, people count, people presence, GUI interactions).
+   - **Logging** – optionally enable external logging and choose between a **Webex Bot** (the server URL is fixed to ``https://webexapis.com/v1/messages``) or a **Webhook** (provide your own endpoint URL), along with the contact/room and access token.
+3. Review the generated config in the **Export** tab preview, which updates live as you make changes.
+4. Download your configuration using one of the two options in the **Export** tab:
+   - **Copy config** – copies just the ``const config = { ... }`` block. Paste this over the existing config (between the ``Configuration Start`` / ``Configuration End`` markers) in an existing ``unbook-workspace.js`` macro.
+   - **Download Macro** – downloads a complete, ready-to-install ``unbook-workspace.js`` with your configuration already applied. The wizard inserts your config between the ``Configuration Start`` / ``Configuration End`` markers and leaves the rest of the macro untouched.
+5. In the Webex device web interface, go to **Macro Editor**, import (or paste) the downloaded macro, save it, and toggle it **On** to enable it.
 
 ## Demo
 
