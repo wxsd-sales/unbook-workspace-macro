@@ -1,4 +1,5 @@
 import defaultConfig from "./example.json" with { type: "json" };
+import Webex from "./webex.js";
 
 /**
  * Working configuration state. Seeded from example.json and mutated in place as
@@ -500,25 +501,51 @@ function injectConfig(source, configBlock) {
   const enabled = document.getElementById("loggingEnabled");
   const fields = document.getElementById("loggingFields");
   const typeSelect = document.getElementById("loggingType");
-  const contact = document.getElementById("loggingContact");
   const contactGroup = document.querySelector("[data-logging-group='contact']");
   const url = document.getElementById("loggingUrl");
   const urlGroup = document.querySelector("[data-logging-group='url']");
   const token = document.getElementById("loggingToken");
+  const tokenLabel = document.getElementById("loggingTokenLabel");
+  const tokenHint = document.getElementById("loggingTokenHint");
+  const contactType = document.getElementById("contactType");
+  const contactSearch = document.getElementById("contactSearch");
+  const contactResults = document.getElementById("contactResults");
+  const contactStatus = document.getElementById("contactStatus");
+  const contactHint = document.getElementById("contactHint");
+  const contactSelected = document.getElementById("contactSelected");
   const debugging = document.getElementById("debugging");
 
   // Webex Bot messages always post to this endpoint, so the URL is fixed and
   // hidden for the bot service.
   const WEBEX_MESSAGES_URL = "https://webexapis.com/v1/messages";
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  // Webex roomIds are long Base64 strings, so this distinguishes a pasted id
+  // from a short name typed for searching.
+  const ROOM_ID_RE = /^[A-Za-z0-9+/=_-]{40,}$/;
+  const SEARCH_DEBOUNCE_MS = 350;
+
+  const CONTACT_HINTS = {
+    person:
+      "Search by name and select a user, or type the Webex user's email address directly.",
+    room:
+      "Search by name and select a space (the bot must be a member of it), or paste the Base64 roomId returned by the listRooms Webex REST API on developer.webex.com.",
+  };
+
+  const CONTACT_PLACEHOLDERS = {
+    person: "Search by name or enter an email address",
+    room: "Search by name or paste a roomId",
+  };
 
   if (
     !enabled ||
     !fields ||
     !typeSelect ||
-    !contact ||
     !url ||
     !token ||
-    !debugging
+    !debugging ||
+    !contactType ||
+    !contactSearch ||
+    !contactResults
   ) {
     return;
   }
@@ -527,17 +554,184 @@ function injectConfig(source, configBlock) {
 
   // Remember the user's own webhook URL so switching bot -> webhook restores it.
   let lastWebhookUrl = logging.type === "webhook" ? logging.url : "";
+  // Guards against out-of-order async search responses overwriting newer ones.
+  let searchSeq = 0;
+  let searchTimer = null;
+
+  const setStatus = (message, isError = false) => {
+    if (!contactStatus) return;
+    contactStatus.hidden = !message;
+    contactStatus.textContent = message || "";
+    contactStatus.classList.toggle("field__hint--error", Boolean(message) && isError);
+  };
+
+  const clearResults = () => {
+    contactResults.hidden = true;
+    contactResults.replaceChildren();
+  };
+
+  const showSelected = (label) => {
+    if (!contactSelected) return;
+    contactSelected.hidden = !label;
+    contactSelected.textContent = label ? `Selected: ${label}` : "";
+  };
+
+  const selectResult = (item) => {
+    // The macro consumes an email (person) or a roomId (space) via config.contact.
+    // The field is the value itself, so show the actual email/roomId and confirm
+    // the friendly name separately.
+    logging.contact = item.value;
+    contactSearch.value = item.value;
+    showSelected(item.label);
+    clearResults();
+    setStatus("");
+    updatePreview();
+  };
+
+  // True when the typed text is already a usable value (email or roomId) rather
+  // than a name to search for.
+  const isDirectValue = (query) =>
+    contactType.value === "room"
+      ? ROOM_ID_RE.test(query)
+      : EMAIL_RE.test(query);
+
+  const renderResults = (items) => {
+    contactResults.replaceChildren();
+
+    if (!items.length) {
+      clearResults();
+      setStatus("No matches found.");
+      return;
+    }
+
+    for (const item of items) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "search-results__item";
+
+      const primary = document.createElement("span");
+      primary.className = "search-results__primary";
+      primary.textContent = item.primary;
+
+      const secondary = document.createElement("span");
+      secondary.className = "search-results__secondary";
+      secondary.textContent = item.secondary;
+
+      button.append(primary, secondary);
+      button.addEventListener("click", () => selectResult(item));
+      contactResults.append(button);
+    }
+
+    setStatus("");
+    contactResults.hidden = false;
+  };
+
+  const searchPeople = async (webex, query) => {
+    const people = await webex.listPeople({ displayName: query, max: 20 });
+    return people
+      .map((person) => {
+        const email = person.emails?.[0] ?? "";
+        return {
+          primary: person.displayName || email || "Unknown user",
+          secondary: email,
+          label: person.displayName ? `${person.displayName} (${email})` : email,
+          value: email,
+        };
+      })
+      .filter((item) => item.value);
+  };
+
+  const searchRooms = async (webex, query) => {
+    // listRooms only returns spaces the bot belongs to, and has no name filter,
+    // so we fetch the bot's rooms and match on the title client-side.
+    const rooms = await webex.listRooms({ type: "group", max: 1000 });
+    const needle = query.toLowerCase();
+    return rooms
+      .filter((room) => (room.title ?? "").toLowerCase().includes(needle))
+      .slice(0, 20)
+      .map((room) => ({
+        primary: room.title || "Untitled space",
+        secondary: room.id,
+        label: room.title || room.id,
+        value: room.id,
+      }));
+  };
+
+  const runSearch = async (query) => {
+    const trimmedToken = (logging.token || "").trim();
+
+    if (!trimmedToken) {
+      clearResults();
+      setStatus("Enter your Webex Bot access token above to search.", true);
+      return;
+    }
+
+    if (!query) {
+      clearResults();
+      setStatus("");
+      return;
+    }
+
+    // A directly entered email / roomId doesn't need a name lookup.
+    if (isDirectValue(query)) {
+      clearResults();
+      setStatus("");
+      return;
+    }
+
+    const seq = (searchSeq += 1);
+    setStatus("Searching\u2026");
+
+    try {
+      const webex = new Webex(trimmedToken);
+      const items =
+        contactType.value === "room"
+          ? await searchRooms(webex, query)
+          : await searchPeople(webex, query);
+
+      // Ignore results from a superseded search.
+      if (seq !== searchSeq) return;
+      renderResults(items);
+    } catch (error) {
+      if (seq !== searchSeq) return;
+      clearResults();
+      setStatus(
+        error?.message ? `Search failed: ${error.message}` : "Search failed.",
+        true,
+      );
+    }
+  };
 
   const syncEnabledState = () => {
     fields.hidden = !logging.enabled;
   };
 
+  const syncContactTypeState = () => {
+    // Guidance explains both how to search and how to enter a value directly
+    // (email for a user, Base64 roomId for a space).
+    if (contactHint) {
+      contactHint.textContent =
+        CONTACT_HINTS[contactType.value] || CONTACT_HINTS.person;
+    }
+    contactSearch.placeholder =
+      CONTACT_PLACEHOLDERS[contactType.value] || CONTACT_PLACEHOLDERS.person;
+  };
+
   const syncTypeState = () => {
     const isBot = logging.type === "bot";
 
-    // The contact / room ID is only used by the Webex Bot service.
+    // The contact lookup is only used by the Webex Bot service.
     if (contactGroup) {
       contactGroup.hidden = !isBot;
+    }
+
+    // The token is a Webex Bot token for the bot service, or a generic access
+    // token for a webhook. Update the label and helper hint accordingly.
+    if (tokenLabel) {
+      tokenLabel.textContent = isBot ? "Webex Bot Access Token" : "Access Token";
+    }
+    if (tokenHint) {
+      tokenHint.hidden = !isBot;
     }
 
     // The Webex Bot service uses a fixed endpoint, so hide the URL field and
@@ -558,13 +752,20 @@ function injectConfig(source, configBlock) {
 
   enabled.checked = logging.enabled;
   typeSelect.value = logging.type;
-  contact.value = logging.contact;
   url.value = logging.url;
   token.value = logging.token;
   debugging.checked = config.debugging;
 
+  // Seed the contact type + value from any previously configured contact. The
+  // field is the value itself (WYSIWYG), so anything not shaped like an email is
+  // treated as a roomId.
+  contactType.value =
+    logging.contact && !EMAIL_RE.test(logging.contact) ? "room" : "person";
+  contactSearch.value = logging.contact || "";
+
   syncEnabledState();
   syncTypeState();
+  syncContactTypeState();
 
   enabled.addEventListener("change", () => {
     logging.enabled = enabled.checked;
@@ -575,11 +776,6 @@ function injectConfig(source, configBlock) {
   typeSelect.addEventListener("change", () => {
     logging.type = typeSelect.value;
     syncTypeState();
-    updatePreview();
-  });
-
-  contact.addEventListener("input", () => {
-    logging.contact = contact.value;
     updatePreview();
   });
 
@@ -595,6 +791,25 @@ function injectConfig(source, configBlock) {
   token.addEventListener("input", () => {
     logging.token = token.value;
     updatePreview();
+  });
+
+  contactType.addEventListener("change", () => {
+    syncContactTypeState();
+    clearResults();
+    const query = contactSearch.value.trim();
+    if (query) runSearch(query);
+  });
+
+  contactSearch.addEventListener("input", () => {
+    // The field's value is the contact: a directly entered email/roomId, or a
+    // name used to search (the chosen result overwrites it with the real value).
+    logging.contact = contactSearch.value.trim();
+    showSelected("");
+    updatePreview();
+
+    clearTimeout(searchTimer);
+    const query = contactSearch.value.trim();
+    searchTimer = setTimeout(() => runSearch(query), SEARCH_DEBOUNCE_MS);
   });
 
   debugging.addEventListener("change", () => {

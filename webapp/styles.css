@@ -509,6 +509,71 @@ h2 {
   pointer-events: none;
 }
 
+/* Contact lookup: type dropdown on the left, search field on the right */
+.search-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 200px) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.search-results {
+  display: grid;
+  gap: 2px;
+  margin-top: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--wizard-border);
+  border-radius: 8px;
+  background: var(--wizard-surface);
+  padding: 4px;
+}
+
+.search-results__item {
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  text-align: left;
+  width: 100%;
+  min-height: 0;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--wizard-text);
+  cursor: pointer;
+}
+
+.search-results__item:hover:not(:disabled),
+.search-results__item:focus-visible {
+  background: var(--wizard-surface-muted);
+  border-color: var(--wizard-input-border-active);
+}
+
+.search-results__primary {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.search-results__secondary {
+  font-size: 12px;
+  color: var(--wizard-text-secondary);
+}
+
+.field__hint--selected {
+  font-weight: 600;
+  color: var(--wizard-success);
+}
+
+.field__hint--error {
+  color: var(--wizard-danger);
+}
+
+@media (max-width: 640px) {
+  .search-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* Toggle switch */
 .toggle-list {
   display: grid;

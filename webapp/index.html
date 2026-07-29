@@ -405,22 +405,6 @@
                   </select>
                 </div>
               </div>
-              <div class="field" data-logging-group="contact">
-                <label class="field__label" for="loggingContact"
-                  >Contact / Room ID</label
-                >
-                <input
-                  class="field__input"
-                  type="text"
-                  id="loggingContact"
-                  autocomplete="off"
-                  placeholder="person@example.com or a Webex roomId"
-                />
-                <span class="field__hint"
-                  >Used by the Webex Bot service to notify a person (email) or a
-                  space (roomId).</span
-                >
-              </div>
               <div class="field" data-logging-group="url">
                 <label class="field__label" for="loggingUrl">Server URL</label>
                 <input
@@ -436,8 +420,11 @@
                   use your own endpoint URL.</span
                 >
               </div>
-              <div class="field">
-                <label class="field__label" for="loggingToken"
+              <div class="field" data-logging-group="token">
+                <label
+                  class="field__label"
+                  for="loggingToken"
+                  id="loggingTokenLabel"
                   >Access Token</label
                 >
                 <input
@@ -447,6 +434,45 @@
                   autocomplete="off"
                   placeholder="Webex Bot token or webhook access token"
                 />
+                <span class="field__hint" id="loggingTokenHint" hidden
+                  >Create a Webex Bot and copy its access token from
+                  <a
+                    href="https://developer.webex.com/my-apps"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >developer.webex.com/my-apps</a
+                  >.</span
+                >
+              </div>
+              <div class="field" data-logging-group="contact">
+                <label class="field__label" for="contactType">Notify</label>
+                <div class="search-row">
+                  <div class="select-wrap">
+                    <select
+                      class="field__input field__select"
+                      id="contactType"
+                    >
+                      <option value="person">Webex User</option>
+                      <option value="room">Webex Space</option>
+                    </select>
+                  </div>
+                  <input
+                    class="field__input"
+                    type="text"
+                    id="contactSearch"
+                    autocomplete="off"
+                    placeholder="Search by name or enter a value"
+                  />
+                </div>
+                <div class="search-results" id="contactResults" hidden></div>
+                <span class="field__hint" id="contactStatus" role="status" hidden
+                ></span>
+                <span class="field__hint" id="contactHint"></span>
+                <span
+                  class="field__hint field__hint--selected"
+                  id="contactSelected"
+                  hidden
+                ></span>
               </div>
             </form>
 
