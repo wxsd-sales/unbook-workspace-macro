@@ -568,6 +568,75 @@ h2 {
   color: var(--wizard-danger);
 }
 
+/* Mockup of the Webex message a bot posts when a booking is unbooked */
+.webex-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--wizard-border);
+  border-radius: 12px;
+  background: var(--wizard-surface);
+}
+
+.webex-message__avatar {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #f4900c;
+  color: #fff;
+}
+
+.webex-message__avatar .icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+/* Small "Bot" tag overlapping the bottom-left of the avatar, as Webex shows. */
+.webex-message__badge {
+  position: absolute;
+  left: -4px;
+  bottom: -5px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: #fff;
+  color: #131313;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  /* A border keeps the white pill visible on a light background, and the drop
+     shadow gives it depth in both themes. */
+  border: 1px solid var(--wizard-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.webex-message__body {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.webex-message__sender {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--wizard-text);
+}
+
+.webex-message__text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--wizard-text);
+}
+
 @media (max-width: 640px) {
   .search-row {
     grid-template-columns: minmax(0, 1fr);

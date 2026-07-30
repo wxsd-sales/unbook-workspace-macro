@@ -513,6 +513,8 @@ function injectConfig(source, configBlock) {
   const contactStatus = document.getElementById("contactStatus");
   const contactHint = document.getElementById("contactHint");
   const contactSelected = document.getElementById("contactSelected");
+  const exampleGroup = document.querySelector("[data-logging-group='example']");
+  const exampleText = document.getElementById("exampleMessageText");
   const debugging = document.getElementById("debugging");
 
   // Webex Bot messages always post to this endpoint, so the URL is fixed and
@@ -535,6 +537,16 @@ function injectConfig(source, configBlock) {
     person: "Search by name or enter an email address",
     room: "Search by name or paste a roomId",
   };
+
+  // Mirrors the plain-text message the macro posts via the Webex Bot service
+  // (see _reportMacroAction in unbook-workspace.js).
+  const EXAMPLE_MESSAGE = [
+    "Unbooking Macro Event:",
+    "Workspace Name: Building1-Floor-Room1",
+    "Booking Title: Team Sync Meeting",
+    "Monitoring Profile: Between 1 and hour Meetings",
+    "Final Action: Unbooking Booking Id [1] - Meeting Id [12345] - No Presence in Room detected - Matched Profile Between 1 and hour Meetings - Booking Duration: [ 60 minutes ] - Used Time: [ 0 minutes ] - Unbooked Time [ 6 minutes ] - Saved Time [ 54 minutes ] - Result: Ok",
+  ].join("\n");
 
   if (
     !enabled ||
@@ -725,6 +737,11 @@ function injectConfig(source, configBlock) {
       contactGroup.hidden = !isBot;
     }
 
+    // The example Webex message only applies to the Webex Bot service.
+    if (exampleGroup) {
+      exampleGroup.hidden = !isBot;
+    }
+
     // The token is a Webex Bot token for the bot service, or a generic access
     // token for a webhook. Update the label and helper hint accordingly.
     if (tokenLabel) {
@@ -755,6 +772,10 @@ function injectConfig(source, configBlock) {
   url.value = logging.url;
   token.value = logging.token;
   debugging.checked = config.debugging;
+
+  if (exampleText) {
+    exampleText.textContent = EXAMPLE_MESSAGE;
+  }
 
   // Seed the contact type + value from any previously configured contact. The
   // field is the value itself (WYSIWYG), so anything not shaped like an email is
